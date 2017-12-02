@@ -246,7 +246,7 @@ $user->hasAllPermissions(['view:dashboard/users', 'update:dashboard/users'])
 ```
 is the same as
 ```php
-@haanysroles('writer')
+@hasanyroles('writer')
     I am a writer!
 @else
     I am not a writer...

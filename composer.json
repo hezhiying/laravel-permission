@@ -1,0 +1,27 @@
+{
+    "name": "zine-admin/permission",
+    "description": "Permission handling for Laravel 5.5 and up",
+    "license": "MIT",
+    "type": "library",
+    "require": {
+        "php": ">=7.0",
+        "illuminate/support": "5.*"
+    },
+    "author": {
+        "name": "zine ",
+        "email": "21418592@qq.com"
+    },
+    "autoload": {
+        "psr-4": {
+            "ZineAdmin\\Permission\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "ZineAdmin\\Permission\\PermissionServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev"
+}

@@ -3,8 +3,8 @@
 namespace ZineAdmin\Permission\Traits;
 
 use Illuminate\Cache\TaggableStore;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use ZineAdmin\Permission\PermissionManage;
 
 trait RefreshCache
 {
@@ -17,13 +17,23 @@ trait RefreshCache
      */
     protected function getCachedByDebug($cacheKey, \Closure $fun)
     {
-        $cacheTagKey = app(PermissionManage::class)->globalCacheTagKey;
+        $cacheTagKey = $this->getCacheTagKey();
 
         if (Cache::getStore() instanceof TaggableStore) {
-            return Cache::tags($cacheTagKey)->remember($cacheKey, config('cache.ttl', 60), function () use ($fun) {
+            return Cache::tags($cacheTagKey)->remember($cacheKey, config('permission.cache_expiration_time', 60), function () use ($fun) {
                 return call_user_func($fun);
             });
         } else return call_user_func($fun);
+    }
+
+    /**
+     * 手动清空所有缓存
+     */
+    public function forgetCachedPermissions()
+    {
+        if (Cache::getStore() instanceof TaggableStore) {
+            return Cache::tags($this->getCacheTagKey())->flush();
+        }
     }
 
     /**
@@ -33,8 +43,10 @@ trait RefreshCache
      */
     public function forgetCachedRolesForUser($userID = null)
     {
-        $cacheKey = 'zine_roles_for_user_' . $userID;
-        return app(PermissionManage::class)->forgetCachedPermissions($cacheKey);
+        $cacheKey = $this->getCacheKeyForUser($userID);
+        if (Cache::getStore() instanceof TaggableStore) {
+            return Cache::tags($this->getCacheTagKey())->forget($cacheKey);
+        }
     }
 
     /**
@@ -43,8 +55,56 @@ trait RefreshCache
      */
     public function forgetCachedPermissionsForRole($roleID = null)
     {
-        $cacheKey = 'zine_permissions_for_role_' . $roleID;
-        return app(PermissionManage::class)->forgetCachedPermissions($cacheKey);
+        $cacheKey = $this->getCacheKeyForRole($roleID);
+        if (Cache::getStore() instanceof TaggableStore) {
+            return Cache::tags($this->getCacheTagKey())->forget($cacheKey);
+        }
     }
 
+    /**
+     * 获取缓存tag名称
+     * @return string
+     */
+    protected function getCacheTagKey()
+    {
+        return 'zine.permission.cache';
+    }
+
+    /**
+     * 指定用户的角色缓存KEY
+     * @param $userID
+     * @return string
+     */
+    protected function getCacheKeyForUser($userID)
+    {
+        return 'zine_roles_for_user_' . $userID;
+    }
+
+    /**
+     * 指定角色的权限缓存KEY
+     * @param $roleID
+     * @return string
+     */
+    protected function getCacheKeyForRole($roleID)
+    {
+        return 'zine_permissions_for_role_' . $roleID;
+    }
+
+    /**
+     *
+     * @param $pipeContent
+     * @return Collection
+     */
+    protected function convertPipeToArray($pipeContent): Collection
+    {
+        return collect(array_wrap($pipeContent))
+            ->map(function ($content) {
+                if (is_string($content)) {
+                    return explode('|', trim($content));
+                } else {
+                    return $content;
+                }
+            })
+            ->flatten();
+    }
 }

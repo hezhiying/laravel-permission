@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 use ZineAdmin\Permission\Contracts\RoleContract;
+use ZineAdmin\Permission\PermissionManage;
 
 trait HasRoles
 {
@@ -39,8 +40,19 @@ trait HasRoles
     {
         $cacheKey = 'zine_roles_for_user_' . $this->attributes[$this->primaryKey];
         return $this->getCachedByDebug($cacheKey, function () {
-            return $this->roles()->get();
+            return $this->roles()->orderBy('priority')->get();
         });
+    }
+
+    /**
+     * 用户拥有的直接权限列表，优先极最高。
+     * todo::待完成，如果用户分配的角色拥有某项权限，
+     * todo::但用户直接权限里是明确禁止的。则用户不具备这个功能
+     * @return array
+     */
+    public function cachedPermissions(): array
+    {
+        return [];
     }
 
     /**
@@ -151,19 +163,44 @@ trait HasRoles
     }
 
     /**
+     * @param string $permission
+     * @return bool
+     */
+    public function hasPermissionTo(string $permission): bool
+    {
+        $permissionManage = new PermissionManage();
+
+        //如果用户直接添加了授予或禁止权限资源，则以用户自身为优先
+        if ($this->cachedPermissions()) {
+            $resultViaSelf = $permissionManage->hasPermission($permission, $this->cachedPermissions());
+            if (is_bool($resultViaSelf)) {
+                return $resultViaSelf;
+            }
+        }
+
+        //如果没有则通过用户分配的角色判断是否拥有权限
+        foreach ($this->cachedRoles() as $role) {
+            if ($role->hasAnyPermissions($permission) == true) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * 检查用户是否拥有任一角色
      *
      * @param string|array $permissions 要检查的权限
      *
      * @return bool
      */
-    public function hasAnyPermissions($permissions)
+    public function hasAnyPermissions($permissions): bool
     {
-        foreach ($this->cachedRoles() as $role) {
-            /**
-             * @var RoleContract $role
-             */
-            if ($role->hasAnyPermissions($permissions) == true) {
+        $permissions = $this->convertPipeToArray($permissions);
+
+        //只需要其中一个具有权限
+        foreach ($permissions as $permission) {
+            if ($this->hasPermissionTo($permission)) {
                 return true;
             }
         }
@@ -173,16 +210,16 @@ trait HasRoles
 
     /**
      * 确定是否具有所有指定的权限
-     * @param $permissions
+     * @param string|array $permissions
      * @return bool
      */
-    public function hasAllPermissions($permissions)
+    public function hasAllPermissions($permissions): bool
     {
-        $permissions = collect(array_wrap($permissions));
+        $permissions = $this->convertPipeToArray($permissions);
+        //需要具有所有指定权限
         return $permissions->every(function ($permission) {
-            return $this->hasAnyPermissions($permission);
+            return $this->hasPermissionTo($permission);
         });
-
     }
 
     /**
@@ -204,30 +241,19 @@ trait HasRoles
      */
     public function hasAnyRoles($roles): bool
     {
-        if (is_string($roles) && false !== strpos($roles, '|')) {
-            $roles = $this->convertPipeToArray($roles);
-        }
-
-        if (is_string($roles)) {
-            return $this->cachedRoles()->contains('name', $roles);
-        }
-
-        if ($roles instanceof RoleContract) {
-            return $this->cachedRoles()->contains('id', $roles->id);
-        }
-
-        if (is_array($roles)) {
-            foreach ($roles as $role) {
-                if ($this->hasAnyRoles($role)) {
-                    return true;
-                }
+        $roles = $this->convertPipeToArray($roles);
+        foreach ($roles as $role) {
+            if (is_string($role)
+                && $this->cachedRoles()->contains('name', $role)) {
+                return true;
             }
-
-            return false;
+            if ($role instanceof RoleContract
+                && $this->cachedRoles()->contains('id', $role->id)) {
+                return true;
+            }
         }
+        return false;
 
-        //collection 集合
-        return (bool)$roles->intersect($this->cachedRoles())->isNotEmpty();
     }
 
     /**
@@ -237,23 +263,14 @@ trait HasRoles
      */
     public function hasAllRoles($roles): bool
     {
-        if (is_string($roles) && false !== strpos($roles, '|')) {
-            $roles = $this->convertPipeToArray($roles);
-        }
-
-        if (is_string($roles)) {
-            return $this->cachedRoles()->contains('name', $roles);
-        }
-
-        if ($roles instanceof RoleContract) {
-            return $this->cachedRoles()->contains('id', $roles->id);
-        }
-
-        $roles = collect()->make($roles)->map(function ($role) {
-            return $role instanceof RoleContract ? $role->name : $role;
-        });
-        return $roles->intersect($this->cachedRoles()->pluck('name')) == $roles;
-
+        $roles = $this->convertPipeToArray($roles);
+        return $roles->every(function ($role) {
+                if (is_string($role)) {
+                    return $this->cachedRoles()->contains('name', $role);
+                } elseif ($role instanceof RoleContract) {
+                    return $this->cachedRoles()->contains('id', $role->id);
+                }
+            });
     }
 
     /**
@@ -265,25 +282,4 @@ trait HasRoles
         return $this->primaryKey === 1;
     }
 
-    protected function convertPipeToArray(string $pipeString)
-    {
-        $pipeString = trim($pipeString);
-
-        if (strlen($pipeString) <= 2) {
-            return $pipeString;
-        }
-
-        $quoteCharacter = substr($pipeString, 0, 1);
-        $endCharacter = substr($quoteCharacter, -1, 1);
-
-        if ($quoteCharacter !== $endCharacter) {
-            return explode('|', $pipeString);
-        }
-
-        if (!in_array($quoteCharacter, ["'", '"'])) {
-            return explode('|', $pipeString);
-        }
-
-        return explode('|', trim($pipeString, $quoteCharacter));
-    }
 }

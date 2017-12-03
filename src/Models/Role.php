@@ -52,7 +52,7 @@ class Role extends Model implements RoleContract
     }
 
     /**
-     * 确定角色是否拥有对应的权限
+     * 确定角色是否拥有其中之一个权限
      *
      * @param string|array $permission
      *
@@ -60,17 +60,15 @@ class Role extends Model implements RoleContract
      */
     public function hasAnyPermissions($permission): bool
     {
-
         $permissionManage = app(PermissionManage::class);
-
-        return $permissionManage->hasAnyPermissions(array_wrap($permission), $this->cachedPermissions());
+        return $permissionManage->hasAnyPermissions($permission, $this->cachedPermissions());
     }
 
     /**
      * 缓存角色对应的权限资源列表信息
-     * @return mixed
+     * @return array
      */
-    public function cachedPermissions()
+    public function cachedPermissions(): array
     {
         $cacheKey = 'zine_permissions_for_role_' . $this->attributes[$this->primaryKey];
 
@@ -95,13 +93,13 @@ class Role extends Model implements RoleContract
     public function givePermissionToAllowed(...$permissions)
     {
         $permissionManage = app(PermissionManage::class);
-        foreach (collect($permissions)->flatten()->filter()->all() as $permission){
+        foreach (collect($permissions)->flatten()->filter()->all() as $permission) {
             throw_unless(
                 $permissionManage->checkPermissionExists($permission),
                 PermissionDoesNotExist::create($permission)
             );
 
-            $this->permissions()->updateOrCreate(['permission'=>$permission],['allowed'=>1]);
+            $this->permissions()->updateOrCreate(['permission' => $permission], ['allowed' => 1]);
         }
 
         $this->forgetCachedPermissionsForRole($this->attributes[$this->primaryKey]);
@@ -116,12 +114,12 @@ class Role extends Model implements RoleContract
     public function givePermissionToDeny(...$permissions)
     {
         $permissionManage = app(PermissionManage::class);
-        foreach (collect($permissions)->flatten()->filter()->all() as $permission){
+        foreach (collect($permissions)->flatten()->filter()->all() as $permission) {
             throw_unless(
                 $permissionManage->checkPermissionExists($permission),
                 PermissionDoesNotExist::create($permission)
             );
-            $this->permissions()->updateOrCreate(['permission'=>$permission],['allowed'=>0]);
+            $this->permissions()->updateOrCreate(['permission' => $permission], ['allowed' => 0]);
         }
 
         $this->forgetCachedPermissionsForRole($this->attributes[$this->primaryKey]);
@@ -141,7 +139,7 @@ class Role extends Model implements RoleContract
         $result = collect($permissions)
             ->flatten()
             ->filter()
-            ->map(function($permission){
+            ->map(function ($permission) {
                 return $this->permissions()->wherePermission($permission)->delete();
             });
         $this->forgetCachedPermissionsForRole($this->attributes[$this->primaryKey]);

@@ -2,12 +2,17 @@
 
 namespace ZineAdmin\Permission;
 
-use Illuminate\Cache\TaggableStore;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use ZineAdmin\Permission\Exceptions\UnauthorizedException;
+use ZineAdmin\Permission\Traits\RefreshCache;
 
-class PermissionManage
+class RefreshCacheExtend
+{
+    use RefreshCache;
+}
+
+class PermissionManage extends RefreshCacheExtend
 {
     /** @var Collection */
     public $container;
@@ -15,11 +20,6 @@ class PermissionManage
     /** @var Resource */
     public $resource;
 
-    /** @var string  */
-    public $globalCacheTagKey = 'zine.permission.cache';
-
-    /** @var \Illuminate\Contracts\Cache\Repository */
-    public $cache;
     /**
      * Permissions constructor.
      */
@@ -28,8 +28,6 @@ class PermissionManage
         $this->container = collect();
 
         $this->resource = new Resource();
-
-        $this->cache = app('cache');
     }
 
     /**
@@ -86,6 +84,35 @@ class PermissionManage
         return $this->resource->checkPermissionExists($permission);
     }
 
+    /**
+     * 检查资源中权限是否允许或禁止
+     * @param string $permission
+     * @param array $resources
+     * @return bool|null
+     */
+    public function hasPermission(string $permission, array $resources)
+    {
+        $permission = trim($permission, ':');
+        if (!str_contains($permission, ':')) {
+            $permission = '*:' . $permission;
+        }
+        if (isset ($resources [$permission])) {
+            return $resources [$permission] == 1;
+        } else {
+            //将权限转成 action:resources [操作,资源]
+            $perm_resources = collect(explode('/', str_after($permission, ':')));
+            while ($perm_resources->isNotEmpty()) {
+                $acl = '*:' . $perm_resources->implode('/');
+                if (isset ($resources [$acl])) {
+                    return $resources [$acl] == 1;
+                }
+                $perm_resources->pop();
+            }
+        }
+        return null;
+    }
+
+
     /***
      * 确认需要的权限是否在权限列表里（检查多个权限，只要有一个权限存在则返回True)
      *
@@ -96,44 +123,13 @@ class PermissionManage
      */
     public function hasAnyPermissions($permissions, $resources): bool
     {
-        if (empty ($resources) || !$permissions) {
-            return false;
-        }
-        //如果是数组则遍历调用
-        if (is_array($permissions)) {
-            foreach ($permissions as $permission) {
-                if ($this->hasAnyPermissions($permission, $resources) == true) {
-                    return true;
-                }
-            }
-        } elseif (is_string($permissions)) {
-            //检查权限是否存在
-            //判断是否有|分隔
-            if(str_contains($permissions, "|")){
-               return  $this->hasAnyPermissions(explode('|', $permissions), $resources);
-            }
-            $permission = $permissions;
-            if (isset ($resources [$permission])) {
-                return $resources [$permission] == 1;
-            } else {
-                //将权限转成 action:resources [操作,资源]
-                $permission_array = collect(explode(':', $permission));
-                if ($permission_array->count() < 2) {
-                    //格式不正确
-                    return false;
-                }
-                //遍历每一个资源，检查权限列表中有没有对应的
-                $resources_array = collect(explode('/', $permission_array->last())); //资源
-                while ($resources_array->count()) {
-                    $acl = '*:' . $resources_array->implode('/');
-                    if (isset ($resources [$acl])) {
-                        return $resources [$acl] == 1;
-                    }
-                    $resources_array->pop();
-                }
+        $permissions = $this->convertPipeToArray($permissions);
+        //只需要其中一个具有权限
+        foreach ($permissions as $permission) {
+            if ($this->hasPermission($permission, $resources)) {
+                return true;
             }
         }
-
         return false;
     }
 
@@ -149,15 +145,15 @@ class PermissionManage
 
         $reflectionObj = new \ReflectionObject($controller);
         if ($reflectionObj instanceof \ReflectionObject) {
-            $ann                               = new Annotation($reflectionObj);
-            $globalSetting['login']  = $globalSetting['login'] || $ann->has('login');
+            $ann = new Annotation($reflectionObj);
+            $globalSetting['login'] = $globalSetting['login'] || $ann->has('login');
 
-            $globalSetting['role']  = $ann->getArray('role');
-            $globalSetting['permission']    = $ann->getArray('permission');
+            $globalSetting['role'] = $ann->getArray('role');
+            $globalSetting['permission'] = $ann->getArray('permission');
             $globalSetting['aclmsg'] = $ann->getString('aclmsg', 'You have no access to this resource!');
 
             $reflectionMethod = new \ReflectionMethod($controller, $methodName);
-            $annotation       = new Annotation($reflectionMethod);
+            $annotation = new Annotation($reflectionMethod);
             //不需要登录
             $nologin = $annotation->has('nologin');
             if ($nologin) {
@@ -199,17 +195,10 @@ class PermissionManage
 
     /**
      * 手动清空所有缓存
-     * @param string|null $cacheKey
      */
-    public function forgetCachedPermissions($cacheKey = null)
+    public function forgetCachedPermissions()
     {
-        if ($this->cache->getStore() instanceof TaggableStore) {
-            if($cacheKey){
-                return $this->cache->tags($this->globalCacheTagKey)->forget($cacheKey);
-            }else{
-                return $this->cache->tags($this->globalCacheTagKey)->flush();
-            }
-        }
+        parent::forgetCachedPermissions();
     }
 
 

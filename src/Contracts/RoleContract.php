@@ -21,6 +21,12 @@ Interface RoleContract
     public function users(): BelongsToMany;
 
     /**
+     * 缓存角色对应的权限资源列表信息
+     * @return array
+     */
+    public function cachedPermissions(): array;
+
+    /**
      * 确定角色是否拥有对应的权限
      * @param string|array $permissions
      *

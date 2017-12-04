@@ -15,17 +15,115 @@
 * [捕获角色和权限检查错误异常](#捕获角色和权限检查错误异常)
 * [cache](#cache)
 
+写在前面
+
+
+> 验证方式：本包的权限验证思路有别于其它权限包，权限格式以 `操作:资源父级/资源下级` 操作资源格式，下级权限默认是继承上线资源的权限，例如：
+
+```php
+$role = Role::whereName('editor')->first();
+//授予
+$role->givePermissionToAllowed([
+    '*:dashboard',
+    'view:dashboard/roles'
+])
+
+//禁止
+$role->givePermissionToDeny([
+    'update:dashboard/users',
+    '*:dashboard/roles'
+])
+```
+
+上面的意思表示角色 `editor` 拥有`dashboard`资源下的的所有权限，但是不能更新用户操作`update:dashboard/users` 和 对角色资源的操作`*:dashboard/roles` 但是可以拥有查看角色的权限`view:dashboard/roles`, 如以下代码：
+
+```php
+$user = User::first();
+//对用户分配角色
+$user->assignRole('editor');
+
+$user->hasPermission('*:dashboard'); //true
+$user->hasPermission('view:dashboard/users'); //true
+$user->hasPermission('update:dashboard/users'); //false
+$user->hasPermission('*:dashboard/logs'); //true
+$user->hasPermission('*:dashboard/roles'); //false
+$user->hasPermission('create:dashboard/roles'); //false
+$user->hasPermission('update:dashboard/roles'); //false
+$user->hasPermission('view:dashboard/roles'); //true
+
+```
+
+> 管理添加系统中的所有权限资源
+本包没有提供`permissions`表以存储所有可分配的权限表，而是以注册的形式，假如我们开发一个会员模块，可以在某个`ServiceProvider`中注册，如：
+
+```php
+use Illuminate\Support\ServiceProvider;
+use ZineAdmin\Permission\PermissionManage;
+class AppServiceProvider extends ServiceProvider
+{
+    public function boot(PermissionManage $permissionManage)
+    {
+        $permissionManage->registerPermissions($this->registerPermissionsMain());
+    }
+    
+    protected function registerPermissionsMain(): array
+    {
+        return [
+            'dashboard/users' => '用户管理',
+            'create:dashboard/users' => '创建用户',
+            'view:dashboard/users' => '显示用户',
+            'delete:dashboard/users' => '删除用户',
+            'update:dashboard/users' => '更新用户',
+        ];
+    }
+    //code...
+```
+
+权限注册后，可以通过以下方式把系统中所有地方注册过的资源显示出来，然后可以授权给某个角色或用户。
+通过这种方法，你可以很方便的为用户角色进行授权。
+```php
+use ZineAdmin\Permission\PermissionManage;
+
+class HomeController
+{
+    public function index()
+    {
+        $permissionManage = app(PermissionManage::class);
+        $resources = $permissionManage->getFlattenResource();
+        return view('perm', compact('resources'));
+    }
+```
+
+perm view:
+
+```blade
+//每个资源有如下属性 res_id  parent name level
+<table>
+    @foreach($resources as $re)
+        <tr parent_id="{{$re['parent']}}" id="{{$re['res_id']}}">
+            <td>{{str_repeat('&nbsp;&nbsp;',$re['level'])}} {{$re['res_id']}} ({{$re['name']}})</td>
+            <td>
+                <input type="radio" name="{{$re['level']}} value="允许"> 允许
+                <input type="radio" name="{{$re['level']}} value="继承"> 继承
+                <input type="radio" name="{{$re['level']}} value="禁止"> 禁止
+            </td>
+        </tr>
+    @endforeach
+</table>
+```
+
+
 一旦安装你就可以这样使用：
 ```php
 // 分配角色给用户
 $user->assignRole('writer');
 
 //角色授予权限
-$role->givePermissionToAllowed('edit articles');
+$role->givePermissionToAllowed('edit:dashboard/articles');
 //角色禁止权限
-$role->givePermissionToDeny('edit articles');
+$role->givePermissionToDeny('edit:dashboard/articles');
 //角色撤销权限
-$role->removePermission('edit articles');
+$role->removePermission('edit:dashboard/articles');
 ```
 
 您可以使用Laravel的默认功能测试用户是否具有权限：
@@ -273,13 +371,13 @@ is the same as
 使用Laravel的本地@can指令来检查用户是否具有某个权限。
 
 ```php
-@can('edit articles')
+@can('edit:dashboard/articles')
   //
 @endcan
 ```
 or
 ```php
-@if(auth()->user()->can('edit articles') && $some_other_condition)
+@if(auth()->user()->can('edit:dashboard/articles') && $some_other_condition)
   //
 @endif
 ```
@@ -320,7 +418,7 @@ Route::group(['middleware' => ['role:super-admin|writer']], function () {
     //
 });
 
-Route::group(['middleware' => ['permission:publish articles|edit articles']], function () {
+Route::group(['middleware' => ['permission:publish articles|edit:dashboard/articles']], function () {
     //
 });
 ```
@@ -330,7 +428,7 @@ Route::group(['middleware' => ['permission:publish articles|edit articles']], fu
 ```php
 public function __construct()
 {
-    $this->middleware(['role:super-admin','permission:publish articles|edit articles']);
+    $this->middleware(['role:super-admin','permission:publish articles|edit:dashboard/articles']);
 }
 ```
 
@@ -383,9 +481,9 @@ public function render($request, Exception $exception)
 $user->assignRoles('writer');
 $user->removeRoles('writer');
 $user->syncRoles(params);
-$role->givePermissionToAllowed('edit articles');
-$role->givePermissionToDeny('edit articles');
-$role->removePermission('edit articles');
+$role->givePermissionToAllowed('edit:dashboard/articles');
+$role->givePermissionToDeny('edit:dashboard/articles');
+$role->removePermission('edit:dashboard/articles');
 ```
 
 ### 手动清除所有缓存

@@ -40,7 +40,7 @@ trait HasRoles
     {
         $cacheKey = 'zine_roles_for_user_' . $this->attributes[$this->primaryKey];
         return $this->getCachedByDebug($cacheKey, function () {
-            return $this->roles()->orderBy('priority')->get();
+            return $this->roles()->get();
         });
     }
 

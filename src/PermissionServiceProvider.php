@@ -7,7 +7,6 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\Compilers\BladeCompiler;
-use ZineAdmin\Permission\Commands\CreatePermission;
 use ZineAdmin\Permission\Commands\CreateRole;
 use ZineAdmin\Permission\Contracts\PermissionContract;
 use ZineAdmin\Permission\Contracts\RoleContract;
@@ -29,7 +28,7 @@ class PermissionServiceProvider extends ServiceProvider
     {
         $this->registerConfig();
         $this->registerMiddleware($router);
-        $this->loadMigrationsFrom(__DIR__ . '/Migrations');
+        //$this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
         $this->registerModelBindings();
         $this->registerCommand();
         $this->registerGatePermission();
@@ -44,7 +43,7 @@ class PermissionServiceProvider extends ServiceProvider
     public function register()
     {
         $this->mergeConfigFrom(
-            __DIR__ . '/Config/permission.php', 'permission'
+            __DIR__ . '/../config/permission.php', 'permission'
         );
         $this->app->singleton(PermissionManage::class, function () {
             return new PermissionManage();
@@ -57,9 +56,13 @@ class PermissionServiceProvider extends ServiceProvider
     protected function registerConfig()
     {
         $this->publishes([
-            __DIR__ . '/Config/permission.php' => config_path('permission.php'),
-        ], 'permission_config');
+            __DIR__ . '/../config/permission.php' => config_path('permission.php'),
+        ], 'config');
 
+        $timestamp = date('Y_m_d_His', time());
+        $this->publishes([
+            __DIR__.'/../database/migrations/create_permission_tables.php.stub' => $this->app->databasePath()."/migrations/{$timestamp}_create_permission_tables.php",
+        ], 'migrations');
     }
 
     /**
@@ -80,8 +83,7 @@ class PermissionServiceProvider extends ServiceProvider
     {
         if ($this->app->runningInConsole()) {
             $this->commands([
-                CreateRole::class,
-                CreatePermission::class
+                CreateRole::class
             ]);
         }
     }

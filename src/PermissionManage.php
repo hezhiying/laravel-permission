@@ -4,7 +4,9 @@ namespace ZineAdmin\Permission;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use ZineAdmin\Permission\Exceptions\UnauthorizedException;
+use ZineAdmin\Permission\Exceptions\UnLoginException;
+use ZineAdmin\Permission\Exceptions\UnPermissionException;
+use ZineAdmin\Permission\Exceptions\UnRolesException;
 use ZineAdmin\Permission\Traits\RefreshCache;
 
 class RefreshCacheExtend
@@ -138,6 +140,7 @@ class PermissionManage extends RefreshCacheExtend
      * @param object $controller 当前控制器
      * @param string $methodName 方法名
      * @return null
+     * @throws
      */
     public function checkPermissionsForController($controller, $methodName)
     {
@@ -178,16 +181,16 @@ class PermissionManage extends RefreshCacheExtend
             $login = $login || $permission || $role;
             //登入检查
             if ($login && Auth::guest()) {
-                throw UnauthorizedException::notLoggedIn();
+                throw new UnLoginException();
             }
 
             //权限检查
             if ($permission && Auth::user()->hasAnyPermissions($permission) == false) {
-                throw UnauthorizedException::forPermissions($permission);
+                throw new UnPermissionException($permission);
             }
             //角色检查
             if ($role && Auth::user()->hasAnyRoles($role) == false) {
-                throw UnauthorizedException::forRoles($role);
+                throw new UnRolesException($role);
             }
 
         }

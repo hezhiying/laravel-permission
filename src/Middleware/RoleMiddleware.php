@@ -4,7 +4,8 @@ namespace ZineAdmin\Permission\Middleware;
 
 use Closure;
 use Illuminate\Support\Facades\Auth;
-use ZineAdmin\Permission\Exceptions\UnauthorizedException;
+use ZineAdmin\Permission\Exceptions\UnLoginException;
+use ZineAdmin\Permission\Exceptions\UnRolesException;
 
 class RoleMiddleware
 {
@@ -15,10 +16,11 @@ class RoleMiddleware
      * @param  \Closure  $next
      * @param String $role
      * @return mixed
+     * @throws
      */
     public function handle($request, Closure $next, String $role)
     {
-        throw_if(Auth::guest(), UnauthorizedException::notLoggedIn());
+        throw_if(Auth::guest(), UnLoginException::class);
         if(method_exists(Auth::user(), 'hasSuperAdmin') && Auth::user()->hasSuperAdmin()){
             return $next($request);
         }
@@ -26,6 +28,6 @@ class RoleMiddleware
         if(method_exists(Auth::user(), 'hasAnyRoles') && Auth::user()->hasAnyRoles($role)){
             return $next($request);
         }
-        throw UnauthorizedException::forRoles($role);
+        throw new UnRolesException($role);
     }
 }

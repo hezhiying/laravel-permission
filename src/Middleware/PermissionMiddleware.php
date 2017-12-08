@@ -3,8 +3,8 @@
 namespace ZineAdmin\Permission\Middleware;
 
 use Closure;
-use ZineAdmin\Permission\Annotation;
-use ZineAdmin\Permission\Exceptions\UnauthorizedException;
+use ZineAdmin\Permission\Exceptions\UnLoginException;
+use ZineAdmin\Permission\Exceptions\UnPermissionException;
 use ZineAdmin\Permission\PermissionManage;
 
 class PermissionMiddleware
@@ -49,12 +49,12 @@ class PermissionMiddleware
             return $next($request);
         }
         if($permissions){
-            throw_if($this->auth->guest(), UnauthorizedException::notLoggedIn());
+            throw_if($this->auth->guest(), UnLoginException::class);
 
             $permissions = collect(explode(" ", $permissions))->filter()->toArray();
             throw_unless(
                 $this->user->hasAnyPermissions($permissions),
-                UnauthorizedException::forPermissions($permissions)
+                new UnPermissionException($permissions)
             );
         }
 

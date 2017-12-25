@@ -142,6 +142,24 @@ You can install the package via composer:
 composer require zine-admin/permission
 ```
 
+您可以通过以下方式发布迁移(migration)：
+
+```bash
+php artisan vendor:publish --provider="ZineAdmin\Permission\PermissionServiceProvider" --tag="migrations"
+```
+
+迁移发布后，您可以通过运行迁移来创建角色和权限表:
+
+```bash
+php artisan migrate
+```
+
+You can publish the config file with:
+
+```bash
+php artisan vendor:publish --provider="ZineAdmin\Permission\PermissionServiceProvider" --tag="config"
+```
+
 ## Usage
 
 First, add the `ZineAdmin\Permission\Traits\HasRoles` trait to your `User` model(s):
@@ -201,6 +219,7 @@ class AppServiceProvider extends ServiceProvider
 
 注册的权限资源会自动生成tree对象，结构如下：
 ```
+"id" => "0",
 "name" => "/",
 "res_id" => "/",
 "desc" => "",
@@ -242,6 +261,21 @@ $resource = $permissionManage->getFlattenResource()
 
 //检查是否存在指定的资源
 $permissionManage->checkPermissionExists('add:dashboard/users')
+```
+获得权限资源一维数组的结构
+
+```php
+//Collection
+[[
+    "id" => 1,
+    "parent" => 0,
+    "is_leaf" => 0,
+    "res_id" => "*:dashboard",
+    "name" => "dashboard",
+    "level" => 1
+  ],
+...
+]   
 ```
 
 ### 为角色授予权限或禁止权限

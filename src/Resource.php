@@ -9,15 +9,16 @@ class Resource extends Collection
 
 
     protected $items = [
-        'id' => '',
+        'id' => 0,
         'uri' => '',
+        'node' => '',
         'name' => '',
         'res_id' => '',
         'desc' => '',
+        'level' => 0,
+        'pos' => 9999,
         'operations' => [],
         'child' => [],
-        'level' => 0,
-        'pos' => 9999
     ];
 
     /**
@@ -30,66 +31,70 @@ class Resource extends Collection
      */
     public $parent;
 
+    public $nodeNum = 0;
+
     /**
      * Resource constructor.
      *
-     * @param array|mixed $id
+     * @param array|mixed $node
      * @param null|self $root
      * @param null|self $parent
      */
-    public function __construct($id = '/', $root = null, $parent = null)
+    public function __construct($node = '/', $root = null, $parent = null)
     {
         parent::__construct($this->items);
-        $this->items['id'] = $id;
-        $this->items['uri'] = $id;
-        $this->items['name'] = $id;
+        $this->items['node'] = $node;
+        $this->items['uri'] = $node;
+        $this->items['name'] = $node;
         $this->items['operations'] = new Collection();
         $this->items['child'] = new Collection();
 
         $this->root = $root ?: $this;
         $this->parent = $parent ?: $this;
 
-        if ($this->parent->id !== '/') {
-            $this->items['uri'] = $this->parent->uri . '/' . $id;
+        if ($this->parent->node !== '/') {
+            $this->items['uri'] = $this->parent->uri . '/' . $node;
         }
 
         if ($root) {
+            $this->items['id'] = ++$root->nodeNum;
             $this->items['res_id'] = '*:' . $this->uri;
             $this->items['level'] = $this->parent->level + 1;
         }
+
     }
 
     /**
      * 自动创建资源，路径以/分隔传递一个路径会依次创建
      * eg:create('a/b/c/d')
-     * @param string $id
+     * @param string $node
      * @param null $builder
      *
      * @return self
      */
-    public function create($id = '', $builder = null)
+    public function create($node = '', $builder = null)
     {
-        if (empty($id) || $id == '/') {
+        if (empty($node) || $node == '/') {
             return $this;
         } else {
-            $ids = explode("/", $id);
-            $node = $this;
-            foreach ($ids as $id) {
-                $node = $node->findChildItem($id);
+            $nodes = explode("/", $node);
+            $resource = $this;
+            foreach ($nodes as $node) {
+                $resource = $resource->findChildItem($node);
             }
         }
         if ($builder instanceof \Closure) {
-            call_user_func($builder, $node);
+            call_user_func($builder, $resource);
         } elseif (is_array($builder)) {
-            unset($builder['id'], $builder['child']);
+            unset($builder['node'], $builder['child']);
             foreach ($builder as $key => $val) {
-                $node->$key = $val;
+                $resource->$key = $val;
             }
         } elseif (!empty(trim($builder))) {
-            $node->name = $builder;
+            $resource->name = $builder;
         }
 
-        return $node;
+        return $resource;
     }
 
     /**
@@ -103,6 +108,7 @@ class Resource extends Collection
     public function addOperation($op, $name, $desc = '', $pos = 9999)
     {
         $this->operations [$op] = new Collection(array(
+            'id' => ++$this->root->nodeNum,
             'uri' => $this->uri,
             'name' => $name,
             'desc' => $desc,
@@ -115,15 +121,15 @@ class Resource extends Collection
     /**
      * 查找并返回，不存在返回null
      *
-     * @param string $id 菜单ID
+     * @param string $node 菜单ID
      * @param string $sortField 需要排序的字段（默认顺序排列）
      * @param boolean $descending 排序方向
      *
      * @return $this||null
      */
-    public function find($id = '', $sortField = '', $descending = false)
+    public function find($node = '', $sortField = '', $descending = false)
     {
-        $resource = $this->create($id);
+        $resource = $this->create($node);
         if ($sortField) {
             $resource->sortBy($sortField, SORT_REGULAR, $descending);
         }
@@ -134,15 +140,15 @@ class Resource extends Collection
     /**
      * 查找返回子集合
      *
-     * @param string $id 菜单ID
+     * @param string $node 菜单ID
      * @param string $sortField 需要排序的字段（默认顺序排列）
      * @param boolean $descending 排序方向
      *
      * @return \Illuminate\Support\Collection
      */
-    public function findGetChild($id = '', $sortField = '', $descending = false)
+    public function findGetChild($node = '', $sortField = '', $descending = false)
     {
-        return $this->find($id, $sortField, $descending)->getChilds();
+        return $this->find($node, $sortField, $descending)->getChilds();
     }
 
     /**
@@ -157,14 +163,14 @@ class Resource extends Collection
     /**
      * 获取单个资源，不存在则先创建
      *
-     * @param string $id
+     * @param string $node
      *
      * @return self
      */
-    private function findChildItem($id)
+    private function findChildItem($node)
     {
         foreach ($this->child ?: [] as $resource) {
-            if ($resource->id == $id) {
+            if ($resource->node == $node) {
                 return $resource;
             }
         }
@@ -173,7 +179,7 @@ class Resource extends Collection
             $this->child = new Collection();
         }
 
-        return $this->child->push(new Resource($id, $this->root, $this))->last();
+        return $this->child->push(new Resource($node, $this->root, $this))->last();
     }
 
     function __set($name, $value)
@@ -250,7 +256,7 @@ class Resource extends Collection
             return $this->resFlatten($this->getChilds());
         }
         foreach ($array as $item) {
-            $arr->push(['res_id' => $item['res_id'], 'parent' => $item->parent->res_id, 'name' => $item['name'], 'level' => $item['level']]);
+            $arr->push(['id'=>$item->id, 'parent' => $item->parent->id, 'is_leaf'=>0, 'res_id' => $item['res_id'], 'name' => $item['name'], 'level' => $item['level']]);
 
             if ($item['child']) {
                 $children = $this->resFlatten($item['child']);
@@ -260,7 +266,7 @@ class Resource extends Collection
             }
             if ($item['operations']) {
                 foreach ($item['operations'] as $v) {
-                    $arr->push(['res_id' => $v['res_id'], 'parent' => $item->res_id, 'name' => $v['name'], 'level' => $item['level'] + 1]);
+                    $arr->push(['id'=>$v['id'], 'parent' => $item->id, 'is_leaf'=>1, 'res_id' => $v['res_id'], 'name' => $v['name'], 'level' => $item['level'] + 1]);
                 }
             }
         }

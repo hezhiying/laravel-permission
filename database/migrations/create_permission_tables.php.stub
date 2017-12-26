@@ -19,7 +19,12 @@ class CreatePermissionTables extends Migration
             $table->increments('id');
             $table->string('name')->unique();
             $table->string('desc', 1000)->nullable();
+            $table->unsignedInteger('lft')->default(0);
+            $table->unsignedInteger('rgt')->default(0);
+            $table->unsignedInteger('parent_id')->nullable();
             $table->timestamps();
+            $table->index([ 'lft', 'rgt', 'parent_id' ]);
+
         });
 
         Schema::create($tableNames['user_has_roles'], function (Blueprint $table) use ($tableNames) {

@@ -15,11 +15,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use ZineAdmin\Permission\Contracts\RoleContract;
 use ZineAdmin\Permission\Exceptions\PermissionDoesNotExist;
 use ZineAdmin\Permission\PermissionManage;
+use ZineAdmin\Permission\Traits\NodeTrait;
 use ZineAdmin\Permission\Traits\RefreshCache;
 
 class Role extends Model implements RoleContract
 {
-    use RefreshCache;
+    use RefreshCache, NodeTrait;
+
 
     public $guarded = ['id'];
 

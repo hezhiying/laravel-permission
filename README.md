@@ -14,6 +14,7 @@
     * [Controller 注释](#controller)
 * [捕获角色和权限检查错误异常](#捕获角色和权限检查错误异常)
 * [cache](#cache)
+* [角色表生成树](#role-tree)
 
 写在前面
 
@@ -525,4 +526,81 @@ $role->removePermission('edit:dashboard/articles');
 ```php
 use ZineAdmin\Permission\PermissionManage;
 app(PermissionManage::class)->forgetCachedPermissions()
+```
+
+## role-tree
+
+角色表支持无限树结构，更详细请访问[Documentation](https://github.com/lazychaser/laravel-nestedset)
+
+添加一个子节点：
+
+```php
+// #1
+$node->prependToNode($parent)->save();
+
+// #2
+$parent->prependNode($node);
+```
+
+祖先和后代
+
+```php
+// 访问祖先
+$node->ancestors;
+
+// 访问后代
+$node->descendants;
+```
+根据ID查询祖先和后代
+
+```php
+//查找祖先
+$result = Role::ancestorsOf($id);
+//查找祖先和自己（包含节点深度）
+$result = Role::withDepth()->ancestorsAndSelf($id);
+$result = Role::descendantsOf($id);
+$result = Role::descendantsAndSelf($id);
+```
+
+转化为树形结构
+
+```php
+$tree = Role::get()->toTree();
+```
+
+转化为扁平树
+
+```php
+$nodes = Role::withDepth()->get()->toFlatTree();
+```
+获取指定节点的子树
+
+```php
+$root = Role::descendantsAndSelf($rootId)->toTree()->first();
+$root = Role::withDepth()->descendantsOf($rootId)->toTree()->first();
+```
+删除节点：
+>重要！该节点的任何后代也将被删除！
+```php
+$role->delete();
+```
+不能使用查询删除
+>这将破坏树结构
+```php
+Role::where('id', '=', $id)->delete();
+```
+
+
+你可以检查树是否被破坏（即有一些结构错误）：
+
+```php
+$bool = Role::isBroken(); //true or false
+//错误统计信息
+$data = Role::countErrors();
+```
+
+修复树
+
+```php
+Role::fixTree();
 ```

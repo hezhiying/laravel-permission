@@ -29,7 +29,6 @@ class PermissionServiceProvider extends ServiceProvider
         $this->registerConfig();
         $this->registerMiddleware($router);
         //$this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
-        $this->registerModelBindings();
         $this->registerCommand();
         $this->registerGatePermission();
         $this->registerBladeExtensions();
@@ -48,6 +47,8 @@ class PermissionServiceProvider extends ServiceProvider
         $this->app->singleton(PermissionManage::class, function () {
             return new PermissionManage();
         });
+        $this->app->bind(PermissionContract::class, config('permission.models.permission'));
+        $this->app->bind(RoleContract::class, config('permission.models.role'));
     }
 
     /**
@@ -59,9 +60,8 @@ class PermissionServiceProvider extends ServiceProvider
             __DIR__ . '/../config/permission.php' => config_path('permission.php'),
         ], 'config');
 
-        $timestamp = date('Y_m_d_His', time());
         $this->publishes([
-            __DIR__.'/../database/migrations/create_permission_tables.php.stub' => $this->app->databasePath()."/migrations/{$timestamp}_create_permission_tables.php",
+            __DIR__ . '/../database/migrations/' => $this->app->databasePath('migrations'),
         ], 'migrations');
     }
 
@@ -88,12 +88,6 @@ class PermissionServiceProvider extends ServiceProvider
         }
     }
 
-    protected function registerModelBindings()
-    {
-        $this->app->bind(PermissionContract::class, config('permission.models.permission'));
-        $this->app->bind(RoleContract::class, config('permission.models.role'));
-    }
-
     /**
      * Gate授权检查截获
      */
@@ -115,7 +109,7 @@ class PermissionServiceProvider extends ServiceProvider
         $this->app->afterResolving('blade.compiler', function (BladeCompiler $bladeCompiler) {
             //注册role指令
             $bladeCompiler->directive('role', function ($arguments) {
-                list($roles, $guard) = explode(',', $arguments.',');
+                list($roles, $guard) = explode(',', $arguments . ',');
                 return "<?php if(auth({$guard})->check() && auth({$guard})->user()->hasAnyRoles({$roles})): ?>";
             });
             $bladeCompiler->directive('endrole', function () {
@@ -124,7 +118,7 @@ class PermissionServiceProvider extends ServiceProvider
 
             //注册hasanyroles指令
             $bladeCompiler->directive('hasanyroles', function ($arguments) {
-                list($roles, $guard) = explode(',', $arguments.',');
+                list($roles, $guard) = explode(',', $arguments . ',');
                 return "<?php if(auth({$guard})->check() && auth({$guard})->user()->hasAnyRoles({$roles})): ?>";
             });
             $bladeCompiler->directive('endhasanyroles', function () {
@@ -133,7 +127,7 @@ class PermissionServiceProvider extends ServiceProvider
 
             //注册hasallroles指令
             $bladeCompiler->directive('hasallroles', function ($arguments) {
-                list($roles, $guard) = explode(',', $arguments.',');
+                list($roles, $guard) = explode(',', $arguments . ',');
 
                 return "<?php if(auth({$guard})->check() && auth({$guard})->user()->hasAllRoles({$roles})): ?>";
             });

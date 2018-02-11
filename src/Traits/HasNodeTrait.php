@@ -8,11 +8,11 @@
 
 namespace ZineAdmin\Permission\Traits;
 
-use Kalnoy\Nestedset\NodeTrait as NestedsetNodeTrait;
+use Kalnoy\Nestedset\NodeTrait;
 
-trait NodeTrait
+trait HasNodeTrait
 {
-    use NestedsetNodeTrait;
+    use NodeTrait;
 
     public function getLftName()
     {

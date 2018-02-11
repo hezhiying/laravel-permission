@@ -8,20 +8,18 @@
 
 namespace ZineAdmin\Permission\Models;
 
-
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use ZineAdmin\Permission\Contracts\RoleContract;
 use ZineAdmin\Permission\Exceptions\PermissionDoesNotExist;
 use ZineAdmin\Permission\PermissionManage;
-use ZineAdmin\Permission\Traits\NodeTrait;
+use ZineAdmin\Permission\Traits\HasNodeTrait;
 use ZineAdmin\Permission\Traits\RefreshCache;
 
 class Role extends Model implements RoleContract
 {
-    use RefreshCache, NodeTrait;
-
+    use RefreshCache, HasNodeTrait;
 
     public $guarded = ['id'];
 
@@ -139,11 +137,11 @@ class Role extends Model implements RoleContract
     public function removePermission(...$permissions)
     {
         $result = collect($permissions)
-            ->flatten()
-            ->filter()
-            ->map(function ($permission) {
-                return $this->permissions()->wherePermission($permission)->delete();
-            });
+        ->flatten()
+        ->filter()
+        ->map(function ($permission) {
+            return $this->permissions()->wherePermission($permission)->delete();
+        });
         $this->forgetCachedPermissionsForRole($this->attributes[$this->primaryKey]);
 
         return $result->sum();

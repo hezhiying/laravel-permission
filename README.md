@@ -82,6 +82,7 @@ class AppServiceProvider extends ServiceProvider
 
 权限注册后，可以通过以下方式把系统中所有地方注册过的资源显示出来，然后可以授权给某个角色或用户。
 通过这种方法，你可以很方便的为用户角色进行授权。
+
 ```php
 use ZineAdmin\Permission\PermissionManage;
 
@@ -115,6 +116,7 @@ perm view:
 
 
 一旦安装你就可以这样使用：
+
 ```php
 // 分配角色给用户
 $user->assignRole('writer');
@@ -143,23 +145,84 @@ You can install the package via composer:
 composer require zine-admin/permission
 ```
 
-您可以通过以下方式发布迁移(migration)：
+执行安装脚本
 
 ```bash
-php artisan vendor:publish --provider="ZineAdmin\Permission\PermissionServiceProvider" --tag="migrations"
+> php artisan permission:install
+> 
+> Step 1: Publishing the Permission database, and config files
+Copied Directory [/packages/zine-admin/permission/database/migrations] To [/database/migrations]
+Publishing complete.
+> Step 2: Migrating the database tables into your application
+> Step 3: Dumping the autoloaded files and reloading all new files
+> Step 4: Seeding data into the database
+> Step 5: Attempting to add `use HasRoles` Trait and `hasSuperAdmin` method to App\User
+> Successfully installed ZineAdmin/Permission! Enjoy
+安装成功，太棒了
+
 ```
 
-迁移发布后，您可以通过运行迁移来创建角色和权限表:
+安装脚本执行以下过程 `复制数据库迁移文件和配制文件`, `执行迁移命令`
+
+1、 复制数据库迁移文件 (migrations) 、配制文件(config) 和 数据填充文件(seeds)：
 
 ```bash
-php artisan migrate
+> php artisan vendor:publish --provider="ZineAdmin\Permission\PermissionServiceProvider" 
 ```
 
-You can publish the config file with:
+2、 执行迁移脚本将数据库表迁移至你的数据库中
+
+运行迁移命令将会创建三张表:`roles` `role_has_permissions` `user_has_roles` 三张表的名称可以在`config/permission.php`配制文件中修改
 
 ```bash
-php artisan vendor:publish --provider="ZineAdmin\Permission\PermissionServiceProvider" --tag="config"
+> php artisan migrate
+
 ```
+
+3、 重新加载文件
+
+```bash
+> composer dump-autoload
+```
+
+4、 填充数据seeds
+
+默认添加角色 `admin` `user`
+
+5、在用户模型文件 (app/user.php) 添加权限特性 (use HasRoles) 和 `hasSuperAdmin`方法
+
+User.php
+
+```php
+
+namespace App;
+
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Foundation\Auth\User as Authenticatable; 
+use ZineAdmin\Permission\Traits\HasRoles;
+
+class User extends Authenticatable
+{
+    use Notifiable; 
+    use HasRoles;
+
+	.
+	.
+	.
+	
+    /** 
+     * 确定用户是否具有超级管理员身份 
+     * 
+     * @return bool
+     */ 
+    public function hasSuperAdmin()
+    {
+        return $this->id === 1;
+    }
+}
+
+```
+
 
 ## Usage
 

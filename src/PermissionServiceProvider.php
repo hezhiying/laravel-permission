@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\Compilers\BladeCompiler;
 use ZineAdmin\Permission\Commands\CreateRole;
+use ZineAdmin\Permission\Commands\InstallCommand;
 use ZineAdmin\Permission\Contracts\PermissionContract;
 use ZineAdmin\Permission\Contracts\RoleContract;
 use ZineAdmin\Permission\Middleware\PermissionMiddleware;
@@ -63,6 +64,10 @@ class PermissionServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__ . '/../database/migrations/' => $this->app->databasePath('migrations'),
         ], 'migrations');
+
+        $this->publishes([
+            __DIR__ . '/../database/seeds/' => $this->app->databasePath('seeds'),
+        ], 'seeds');
     }
 
     /**
@@ -83,7 +88,8 @@ class PermissionServiceProvider extends ServiceProvider
     {
         if ($this->app->runningInConsole()) {
             $this->commands([
-                CreateRole::class
+                CreateRole::class,
+                InstallCommand::class
             ]);
         }
     }

@@ -5,7 +5,8 @@
     "type": "library",
     "require": {
         "php": ">=7.0",
-        "illuminate/support": "5.*"
+        "illuminate/support": "5.*",
+        "kalnoy/nestedset": "4.*"
     },
     "author": {
         "name": "zine ",
